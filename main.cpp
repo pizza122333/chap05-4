@@ -1,0 +1,56 @@
+#include <iostream>
+#include "opencv2/opencv.hpp"
+
+using namespace std;
+using namespace cv;
+
+// 히스토그램 계산 함수 (코드 5-7 기반)
+Mat calcGrayHist(const Mat& img) {
+    CV_Assert(img.type() == CV_8UC1);
+    Mat hist;
+    int channels[] = { 0 };
+    int dims = 1;
+    const int histSize[] = { 256 };
+    float graylevel[] = { 0, 256 };
+    const float* ranges[] = { graylevel };
+    calcHist(&img, 1, channels, noArray(), hist, dims, histSize, ranges);
+    return hist;
+}
+
+// 히스토그램 그래프 그리기 함수 (코드 5-8 기반)
+Mat getGrayHistImage(const Mat& hist) {
+    double histMax;
+    minMaxLoc(hist, 0, &histMax);
+    Mat imgHist(100, 256, CV_8UC1, Scalar(255));
+    for (int i = 0; i < 256; i++) {
+        line(imgHist, Point(i, 100),
+            Point(i, 100 - cvRound(hist.at<float>(i, 0) * 100 / histMax)),
+            Scalar(0));
+    }
+    return imgHist;
+}
+
+int main() {
+    // 1. 영상 불러오기 (그레이스케일)
+    Mat src = imread("crayfish.jpg", IMREAD_GRAYSCALE);
+    if (src.empty()) {
+        cerr << "Image load failed!" << endl;
+        return -1;
+    }
+
+    // 2. 히스토그램 평활화 수행 (핵심 함수)
+    Mat dst;
+    equalizeHist(src, dst);
+
+    // 3. 결과 영상 및 히스토그램 출력
+    imshow("src", src);
+    imshow("dst", dst);
+
+    imshow("srcHist", getGrayHistImage(calcGrayHist(src)));
+    imshow("dstHist", getGrayHistImage(calcGrayHist(dst)));
+
+    waitKey(0);
+    destroyAllWindows();
+
+    return 0;
+}
