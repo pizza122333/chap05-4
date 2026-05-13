@@ -1,0 +1,71 @@
+#include <iostream>
+#include "opencv2/opencv.hpp"
+
+using namespace cv;
+using namespace std;
+
+Mat calcGrayHist(const Mat& img);
+Mat getGrayHistImage(const Mat& hist);
+
+int main(void)
+{
+    Mat src = imread("hawkes.bmp", IMREAD_GRAYSCALE);
+    if (src.empty()) { cerr << "Image load failed!" << endl; return -1; }
+
+    double gmin, gmax;
+    minMaxLoc(src, &gmin, &gmax);
+    cout << "Gmin:" << gmin << endl;
+    cout << "Gmax:" << gmax << endl;
+
+    // 결과 영상을 저장할 빈 행렬 생성 (입력 영상과 동일 크기 및 타입)
+    Mat dst = Mat::zeros(src.size(), src.type());
+
+    // 픽셀 직접 참조 방식으로 스트레칭 연산 수행
+    for (int y = 0; y < src.rows; y++) {
+        for (int x = 0; x < src.cols; x++) {
+            // 원본 픽셀 값 가져오기
+            uchar p_src = src.at<uchar>(y, x);
+
+            // 스트레칭 공식 적용 및 포화 연산(saturate_cast)
+            // 공식: (src - gmin) * 255 / (gmax - gmin)
+            dst.at<uchar>(y, x) = saturate_cast<uchar>((p_src - gmin) * 255 / (gmax - gmin));
+        }
+    }
+
+    imshow("src", src);
+    imshow("srcHist", getGrayHistImage(calcGrayHist(src)));
+    imshow("dst", dst);
+    imshow("dstHist", getGrayHistImage(calcGrayHist(dst)));
+
+    waitKey();
+    return 0;
+}
+
+// [코드 5-7] 히스토그램 구하기
+Mat calcGrayHist(const Mat& img) {
+    CV_Assert(img.type() == CV_8UC1);
+    Mat hist;
+    int channels[] = { 0 };
+    int dims = 1;
+    const int histSize[] = { 256 };
+    float graylevel[] = { 0, 256 };
+    const float* ranges[] = { graylevel };
+    calcHist(&img, 1, channels, noArray(), hist, dims, histSize, ranges);
+    return hist;
+}
+
+// [코드 5-8] 히스토그램 그래프 그리기 (막대 그래프 방식)
+Mat getGrayHistImage(const Mat& hist) {
+    CV_Assert(hist.type() == CV_32FC1);
+    CV_Assert(hist.size() == Size(1, 256));
+    double histMax;
+    minMaxLoc(hist, 0, &histMax);
+    Mat imgHist(100, 256, CV_8UC1, Scalar(255));
+    for (int i = 0; i < 256; i++) {
+        line(imgHist,
+            Point(i, 100),
+            Point(i, 100 - cvRound(hist.at<float>(i, 0) * 100 / histMax)),
+            Scalar(0));
+    }
+    return imgHist;
+}
