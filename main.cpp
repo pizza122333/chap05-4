@@ -1,0 +1,73 @@
+#include <iostream>
+#include "opencv2/opencv.hpp"
+
+using namespace std;
+using namespace cv;
+
+// 히스토그램 계산 함수 (기존 코드 활용)
+Mat calcGrayHist(const Mat& img) {
+    CV_Assert(img.type() == CV_8UC1);
+    Mat hist;
+    int channels[] = { 0 };
+    int dims = 1;
+    const int histSize[] = { 256 };
+    float graylevel[] = { 0, 256 };
+    const float* ranges[] = { graylevel };
+    calcHist(&img, 1, channels, noArray(), hist, dims, histSize, ranges);
+    return hist;
+}
+
+// 히스토그램 그래프 그리기 함수 (기존 코드 활용)
+Mat getGrayHistImage(const Mat& hist) {
+    double histMax;
+    minMaxLoc(hist, 0, &histMax);
+    Mat imgHist(100, 256, CV_8UC1, Scalar(255));
+    for (int i = 0; i < 256; i++) {
+        line(imgHist, Point(i, 100),
+            Point(i, 100 - cvRound(hist.at<float>(i, 0) * 100 / histMax)),
+            Scalar(0));
+    }
+    return imgHist;
+}
+
+// [고급] 누적 분포 함수(CDF) 그래프 그리기 함수
+Mat getGrayCDFImage(const Mat& hist) {
+    // 1. 누적 히스토그램 계산 (CV_32FC1 타입 준수)
+    Mat cdf = Mat::zeros(256, 1, CV_32F);
+    cdf.at<float>(0) = hist.at<float>(0);
+    for (int i = 1; i < 256; i++) {
+        cdf.at<float>(i) = cdf.at<float>(i - 1) + hist.at<float>(i);
+    }
+
+    // 2. CDF 시각화 (0 ~ 마지막 누적값까지 정규화하여 그림)
+    float maxCdf = cdf.at<float>(255);
+    Mat imgCDF(100, 256, CV_8UC1, Scalar(255));
+
+    for (int i = 0; i < 256; i++) {
+        // 현재 위치까지의 누적 비율을 높이로 계산
+        int h = cvRound((cdf.at<float>(i) * 100) / maxCdf);
+        line(imgCDF, Point(i, 100), Point(i, 100 - h), Scalar(0));
+    }
+
+    return imgCDF;
+}
+
+int main() {
+    Mat src = imread("crayfish.jpg", IMREAD_GRAYSCALE);
+    if (src.empty()) return -1;
+
+    Mat hist = calcGrayHist(src);
+
+    // 일반 히스토그램 영상과 누적 함수(CDF) 영상 생성
+    Mat histImg = getGrayHistImage(hist);
+    Mat cdfImg = getGrayCDFImage(hist);
+
+    imshow("src", src);
+    imshow("srcHist", histImg);
+    imshow("CDF", cdfImg);
+
+    waitKey(0);
+    destroyAllWindows();
+
+    return 0;
+}
